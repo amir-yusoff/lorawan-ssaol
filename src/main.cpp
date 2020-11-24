@@ -3,15 +3,39 @@
 #include <hal/hal.h>
 #include <SPI.h>
 
-#define MY_DEBUG
+// ************************************************************************************************
+//                                         mode select
+// ************************************************************************************************
+//#define MY_DEBUG
+#define AFFAN_MODE
+//#define MB_MODE
+// ************************************************************************************************
+// ************************************************************************************************
 
-int BATTERY_SENSE_PIN = A3;
-int SOLAR_SENSE_PIN = A4;
-int LED_STATUS_PIN = A0;
+// sensor and LED pinout
+const int BATTERY_SENSE_PIN = A3;
+const int SOLAR_SENSE_PIN = A4;
+const int LED_STATUS_PIN = A0;
+const int LED_PIN = 9;
 
-static const PROGMEM u1_t NWKSKEY[16] = {0x7A, 0xE0, 0xBC, 0xC9, 0x49, 0x6C, 0x51, 0x76, 0x38, 0x24, 0x11, 0xBA, 0xE1, 0x1F, 0x5E, 0xAB};
-static const u1_t PROGMEM APPSKEY[16] = {0x65, 0x9A, 0x07, 0xFE, 0x1B, 0x89, 0x10, 0xD9, 0x76, 0xF5, 0x71, 0xCB, 0x28, 0xD4, 0x0F, 0xE4};
-static const u4_t DEVADDR = 0x26041723;
+// variable declaration
+const float VOLTAGE_REFERENCE = 3.3;
+int ledState = LOW;
+unsigned long previousMillis = 0;
+unsigned long onInterval = 500;
+unsigned long offInterval = 2500;
+
+#ifdef AFFAN_MODE
+float solarThreshold = 1.6;
+#endif
+#ifdef MB_MODE
+float solarThreshold = 1.2;
+#endif
+
+// battery-and-solar-monitoring -> affan-node1
+static const PROGMEM u1_t NWKSKEY[16] = { 0x25, 0x8E, 0x23, 0xB5, 0x7D, 0xF1, 0x6F, 0x0E, 0x6D, 0x48, 0x66, 0x79, 0x26, 0xA1, 0x89, 0xE3 };
+static const u1_t PROGMEM APPSKEY[16] = { 0x72, 0xFB, 0x11, 0xDD, 0xD7, 0x40, 0x02, 0xB4, 0xA3, 0x22, 0xA5, 0xB7, 0x1D, 0xC9, 0x5B, 0x49 };
+static const u4_t DEVADDR = 0x26041DBB;
 
 void os_getArtEui(u1_t *buf) {}
 void os_getDevEui(u1_t *buf) {}
@@ -19,7 +43,7 @@ void os_getDevKey(u1_t *buf) {}
 
 static osjob_t sendjob;
 
-const unsigned TX_INTERVAL = 20;
+const unsigned TX_INTERVAL = 1800;
 
 // ************************************************************************************************
 //                                         pin mapping
@@ -27,8 +51,8 @@ const unsigned TX_INTERVAL = 20;
 const lmic_pinmap lmic_pins = {
     .nss = 10,
     .rxtx = LMIC_UNUSED_PIN,
-    .rst = 9,
-    .dio = { 8, 7 , LMIC_UNUSED_PIN },
+    .rst = 5,
+    .dio = {8, 7, LMIC_UNUSED_PIN},
 };
 
 // ************************************************************************************************
@@ -45,6 +69,8 @@ float readSol();
 void setup()
 {
   pinMode(LED_STATUS_PIN, OUTPUT);
+  pinMode(LED_PIN, OUTPUT);
+
   while (!Serial)
     ; // wait for Serial to be initialized
   Serial.begin(115200);
@@ -82,16 +108,43 @@ void setup()
 
 void loop()
 {
-  unsigned long now;
-  now = millis();
-  if ((now & 512) != 0)
+#ifdef MB_MODE
+  unsigned long currentMillis = millis();
+  float nowSolar = readSol();
+
+  if ((ledState == HIGH) && (currentMillis - previousMillis >= onInterval))
   {
-    digitalWrite(LED_STATUS_PIN, HIGH);
+    if (nowSolar < solarThreshold)
+    {
+      ledState = LOW;                  
+      previousMillis = currentMillis;  
+      digitalWrite(LED_PIN, ledState); 
+    }
   }
-  else
+  else if ((ledState == LOW) && (currentMillis - previousMillis >= offInterval))
   {
-    digitalWrite(LED_STATUS_PIN, LOW);
+    if (nowSolar < solarThreshold)
+    {
+      ledState = HIGH;                 
+      previousMillis = currentMillis;  
+      digitalWrite(LED_PIN, ledState); 
+    }
   }
+#endif
+#ifdef AFFAN_MODE
+  float nowSolar = readSol();
+
+  if (nowSolar > solarThreshold)
+  {
+    ledState = LOW;                  
+    digitalWrite(LED_PIN, ledState); 
+  }
+  else if (nowSolar < solarThreshold)
+  {
+    ledState = HIGH;                 
+    digitalWrite(LED_PIN, ledState); 
+  }
+#endif
 
   os_runloop_once();
 }
@@ -213,7 +266,7 @@ float readBat()
 {
   int battSensorValue = analogRead(BATTERY_SENSE_PIN);
   //float batteryV = battSensorValue * 0.006383;
-  float batteryV = battSensorValue * (5.0 / 1023.0) * 2;
+  float batteryV = battSensorValue * (VOLTAGE_REFERENCE / 1023.0) * 2;
 
 #ifdef MY_DEBUG
   Serial.print("Sensor reading: ");
@@ -230,7 +283,7 @@ float readBat()
 float readSol()
 {
   int solSensorValue = analogRead(SOLAR_SENSE_PIN);
-  float solarV = solSensorValue * (5.0 / 1023.0) * 2;
+  float solarV = solSensorValue * (VOLTAGE_REFERENCE / 1023.0) * 2;
 
 #ifdef MY_DEBUG
   Serial.print("Sensor reading: ");
