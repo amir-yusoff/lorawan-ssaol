@@ -9,6 +9,7 @@
 //#define MY_DEBUG
 #define AFFAN_MODE
 //#define MB_MODE
+//#define MA_MODE
 // ************************************************************************************************
 // ************************************************************************************************
 
@@ -22,19 +23,27 @@ const int LED_PIN = 9;
 const float VOLTAGE_REFERENCE = 3.3;
 int ledState = LOW;
 unsigned long previousMillis = 0;
-unsigned long onInterval = 500;
-unsigned long offInterval = 2500;
-
 #ifdef AFFAN_MODE
-float solarThreshold = 1.6;
+const float solarThreshold = 1.2;
+const int nightIntensity = 240;
 #endif
 #ifdef MB_MODE
-float solarThreshold = 1.2;
+float solarThreshold = 1.6;
+unsigned long onInterval = 500;
+unsigned long offInterval = 2500;
+const int nightIntensity = 180;
+#endif
+#ifdef MA_MODE
+const float solarThreshold = 1.6;
+unsigned long onInterval = 500;
+unsigned long offInterval = 2500;
+const int dayIntensity = 240;
+const int nightIntensity = 200;
 #endif
 
 // battery-and-solar-monitoring -> affan-node1
-static const PROGMEM u1_t NWKSKEY[16] = { 0x25, 0x8E, 0x23, 0xB5, 0x7D, 0xF1, 0x6F, 0x0E, 0x6D, 0x48, 0x66, 0x79, 0x26, 0xA1, 0x89, 0xE3 };
-static const u1_t PROGMEM APPSKEY[16] = { 0x72, 0xFB, 0x11, 0xDD, 0xD7, 0x40, 0x02, 0xB4, 0xA3, 0x22, 0xA5, 0xB7, 0x1D, 0xC9, 0x5B, 0x49 };
+static const PROGMEM u1_t NWKSKEY[16] = {0x25, 0x8E, 0x23, 0xB5, 0x7D, 0xF1, 0x6F, 0x0E, 0x6D, 0x48, 0x66, 0x79, 0x26, 0xA1, 0x89, 0xE3};
+static const u1_t PROGMEM APPSKEY[16] = {0x72, 0xFB, 0x11, 0xDD, 0xD7, 0x40, 0x02, 0xB4, 0xA3, 0x22, 0xA5, 0xB7, 0x1D, 0xC9, 0x5B, 0x49};
 static const u4_t DEVADDR = 0x26041DBB;
 
 void os_getArtEui(u1_t *buf) {}
@@ -62,6 +71,7 @@ void onEvent(ev_t ev);
 void do_send(osjob_t *j);
 float readBat();
 float readSol();
+void printVoltage();
 
 // ************************************************************************************************
 //                                         arduino loop
@@ -108,42 +118,77 @@ void setup()
 
 void loop()
 {
-#ifdef MB_MODE
-  unsigned long currentMillis = millis();
-  float nowSolar = readSol();
-
-  if ((ledState == HIGH) && (currentMillis - previousMillis >= onInterval))
-  {
-    if (nowSolar < solarThreshold)
-    {
-      ledState = LOW;                  
-      previousMillis = currentMillis;  
-      digitalWrite(LED_PIN, ledState); 
-    }
-  }
-  else if ((ledState == LOW) && (currentMillis - previousMillis >= offInterval))
-  {
-    if (nowSolar < solarThreshold)
-    {
-      ledState = HIGH;                 
-      previousMillis = currentMillis;  
-      digitalWrite(LED_PIN, ledState); 
-    }
-  }
-#endif
 #ifdef AFFAN_MODE
   float nowSolar = readSol();
 
   if (nowSolar > solarThreshold)
   {
-    ledState = LOW;                  
-    digitalWrite(LED_PIN, ledState); 
+    ledState = LOW;
+    digitalWrite(LED_PIN, ledState);
   }
   else if (nowSolar < solarThreshold)
   {
-    ledState = HIGH;                 
-    digitalWrite(LED_PIN, ledState); 
+    ledState = HIGH;
+    analogWrite(LED_PIN, nightIntensity);
   }
+#endif
+#ifdef MB_MODE
+  unsigned long currentMillis = millis();
+  float nowSolar = readSol();
+  if (nowSolar < solarThreshold)
+  {
+    if ((ledState == HIGH) && (currentMillis - previousMillis >= onInterval))
+    {
+      ledState = LOW;
+      previousMillis = currentMillis;
+      digitalWrite(LED_PIN, ledState);
+    }
+    else if ((ledState == LOW) && (currentMillis - previousMillis >= offInterval))
+    {
+      ledState = HIGH;
+      previousMillis = currentMillis;
+      analogWrite(LED_PIN, nightIntensity);
+    }
+  }
+#endif
+#ifdef MA_MODE
+  unsigned long currentMillis = millis();
+  float nowSolar = readSol();
+  if (nowSolar < solarThreshold)
+  {
+    if ((ledState == HIGH) && (currentMillis - previousMillis >= onInterval))
+    {
+      ledState = LOW;
+      previousMillis = currentMillis;
+      digitalWrite(LED_PIN, ledState);
+    }
+    else if ((ledState == LOW) && (currentMillis - previousMillis >= offInterval))
+    {
+      ledState = HIGH;
+      previousMillis = currentMillis;
+      analogWrite(LED_PIN, nightIntensity);
+    }
+  }
+  else
+  {
+    if ((ledState == HIGH) && (currentMillis - previousMillis >= onInterval))
+    {
+      ledState = LOW;
+      previousMillis = currentMillis;
+      digitalWrite(LED_PIN, ledState);
+    }
+    else if ((ledState == LOW) && (currentMillis - previousMillis >= offInterval))
+    {
+      ledState = HIGH;
+      previousMillis = currentMillis;
+      analogWrite(LED_PIN, dayIntensity);
+    }
+  }
+
+#endif
+
+#ifdef MY_DEBUG
+  printVoltage();
 #endif
 
   os_runloop_once();
@@ -265,18 +310,7 @@ void do_send(osjob_t *j)
 float readBat()
 {
   int battSensorValue = analogRead(BATTERY_SENSE_PIN);
-  //float batteryV = battSensorValue * 0.006383;
   float batteryV = battSensorValue * (VOLTAGE_REFERENCE / 1023.0) * 2;
-
-#ifdef MY_DEBUG
-  Serial.print("Sensor reading: ");
-  Serial.print(battSensorValue);
-  Serial.print(" | ");
-  Serial.print("Battery Voltage: ");
-  Serial.print(batteryV);
-  Serial.println(" V");
-#endif
-
   return batteryV;
 }
 
@@ -284,15 +318,29 @@ float readSol()
 {
   int solSensorValue = analogRead(SOLAR_SENSE_PIN);
   float solarV = solSensorValue * (VOLTAGE_REFERENCE / 1023.0) * 2;
+  return solarV;
+}
 
-#ifdef MY_DEBUG
-  Serial.print("Sensor reading: ");
+void printVoltage()
+{
+  int battSensorValue = analogRead(BATTERY_SENSE_PIN);
+  int solSensorValue = analogRead(SOLAR_SENSE_PIN);
+
+  float batteryV = battSensorValue * (VOLTAGE_REFERENCE / 1023.0) * 2;
+  float solarV = solSensorValue * (VOLTAGE_REFERENCE / 1023.0) * 2;
+
+  Serial.print("*************************************");
+  Serial.print("Battery sensor reading: ");
+  Serial.print(battSensorValue);
+  Serial.print(" | ");
+  Serial.print("Battery Voltage: ");
+  Serial.print(batteryV);
+  Serial.println(" V");
+  Serial.print("Solar sensor reading: ");
   Serial.print(solSensorValue);
   Serial.print(" | ");
   Serial.print("Solar Voltage: ");
   Serial.print(solarV);
   Serial.println(" V");
-#endif
-
-  return solarV;
+  Serial.print("*************************************");
 }
