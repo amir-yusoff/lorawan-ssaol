@@ -16,8 +16,10 @@
 // sensor and LED pinout
 const int BATTERY_SENSE_PIN = A3;
 const int SOLAR_SENSE_PIN = A4;
-const int LED_STATUS_PIN = A0;
 const int LED_PIN = 9;
+#ifdef LED_STATUS_INDICATOR
+const int LED_STATUS_PIN = A0;
+#endif
 
 // variable declaration
 const float VOLTAGE_REFERENCE = 3.3;
@@ -41,10 +43,10 @@ const int dayIntensity = 240;
 const int nightIntensity = 200;
 #endif
 
-// battery-and-solar-monitoring -> affan-node1
-static const PROGMEM u1_t NWKSKEY[16] = {0x25, 0x8E, 0x23, 0xB5, 0x7D, 0xF1, 0x6F, 0x0E, 0x6D, 0x48, 0x66, 0x79, 0x26, 0xA1, 0x89, 0xE3};
-static const u1_t PROGMEM APPSKEY[16] = {0x72, 0xFB, 0x11, 0xDD, 0xD7, 0x40, 0x02, 0xB4, 0xA3, 0x22, 0xA5, 0xB7, 0x1D, 0xC9, 0x5B, 0x49};
-static const u4_t DEVADDR = 0x26041DBB;
+// battery-and-solar-monitoring -> mb-node1
+static const PROGMEM u1_t NWKSKEY[16] = {0xB7, 0x81, 0xCE, 0xB0, 0xD2, 0xEC, 0x8B, 0xB3, 0x5C, 0x47, 0xA5, 0x75, 0xA8, 0x33, 0x77, 0x37};
+static const u1_t PROGMEM APPSKEY[16] = {0x4A, 0x94, 0x44, 0x54, 0xD9, 0xF1, 0x72, 0xEE, 0x3C, 0xAD, 0xF3, 0x93, 0x5E, 0xE2, 0xF3, 0xAA};
+static const u4_t DEVADDR = 0x260413A8;
 
 void os_getArtEui(u1_t *buf) {}
 void os_getDevEui(u1_t *buf) {}
@@ -60,7 +62,7 @@ const unsigned TX_INTERVAL = 1800;
 const lmic_pinmap lmic_pins = {
     .nss = 10,
     .rxtx = LMIC_UNUSED_PIN,
-    .rst = 5,
+    .rst = 9,
     .dio = {8, 7, LMIC_UNUSED_PIN},
 };
 
@@ -78,7 +80,9 @@ void printVoltage();
 // ************************************************************************************************
 void setup()
 {
+  #ifdef LED_STATUS_INDICATOR
   pinMode(LED_STATUS_PIN, OUTPUT);
+  #endif
   pinMode(LED_PIN, OUTPUT);
 
   while (!Serial)
