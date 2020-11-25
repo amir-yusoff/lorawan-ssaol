@@ -302,6 +302,7 @@ void do_send(osjob_t *j)
     buffer[2] = s >> 8;
     buffer[3] = s;
     LMIC_setTxData2(1, buffer, sizeof(buffer), 0);
+    printVoltage();
     Serial.println(F("Packet queued"));
   }
   // Next TX is scheduled after TX_COMPLETE event.
@@ -329,7 +330,7 @@ void printVoltage()
   float batteryV = battSensorValue * (VOLTAGE_REFERENCE / 1023.0) * 2;
   float solarV = solSensorValue * (VOLTAGE_REFERENCE / 1023.0) * 2;
 
-  Serial.print("*************************************");
+  Serial.println("*************************************");
   Serial.print("Battery sensor reading: ");
   Serial.print(battSensorValue);
   Serial.print(" | ");
@@ -342,5 +343,5 @@ void printVoltage()
   Serial.print("Solar Voltage: ");
   Serial.print(solarV);
   Serial.println(" V");
-  Serial.print("*************************************");
+  Serial.println("*************************************");
 }
