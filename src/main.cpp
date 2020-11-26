@@ -9,9 +9,11 @@
 #define AFFAN_MODE
 //#define MB_MODE
 //#define MA_MODE
+//#define MAB_MODE
 // ************************************************************************************************
 // ************************************************************************************************
 //#define MY_DEBUG
+//#define LED_STATUS_INDICATOR
 
 // sensor and LED pinout
 const int BATTERY_SENSE_PIN = A3;
@@ -20,14 +22,17 @@ const int LED_PIN = 9;
 #ifdef LED_STATUS_INDICATOR
 const int LED_STATUS_PIN = A0;
 #endif
+#ifdef MAB_MODE
+const int LED_PIN2 = A0;
+#endif
 
 // variable declaration
 const float VOLTAGE_REFERENCE = 3.3;
-int ledState = LOW;
+bool ledState = LOW;
 unsigned long previousMillis = 0;
 #ifdef AFFAN_MODE
 const float solarThreshold = 1.2;
-const int nightIntensity = 240;
+const int nightIntensity = 255;
 #endif
 #ifdef MB_MODE
 float solarThreshold = 1.6;
@@ -42,11 +47,20 @@ unsigned long offInterval = 2500;
 const int dayIntensity = 240;
 const int nightIntensity = 200;
 #endif
+// FIXME: code for MAB light blinking
+#ifdef MAB_MODE
+bool ledState2 = LOW;
+const float solarThreshold = 1.6;
+unsigned long onInterval = 500;
+unsigned long offInterval = 2500;
+const int dayIntensity = 240;
+const int nightIntensity = 180;
+#endif
 
 // battery-and-solar-monitoring -> mb-node1
-static const PROGMEM u1_t NWKSKEY[16] = {0xB7, 0x81, 0xCE, 0xB0, 0xD2, 0xEC, 0x8B, 0xB3, 0x5C, 0x47, 0xA5, 0x75, 0xA8, 0x33, 0x77, 0x37};
-static const u1_t PROGMEM APPSKEY[16] = {0x4A, 0x94, 0x44, 0x54, 0xD9, 0xF1, 0x72, 0xEE, 0x3C, 0xAD, 0xF3, 0x93, 0x5E, 0xE2, 0xF3, 0xAA};
-static const u4_t DEVADDR = 0x260413A8;
+static const PROGMEM u1_t NWKSKEY[16] = {0x25, 0x8E, 0x23, 0xB5, 0x7D, 0xF1, 0x6F, 0x0E, 0x6D, 0x48, 0x66, 0x79, 0x26, 0xA1, 0x89, 0xE3};
+static const u1_t PROGMEM APPSKEY[16] = {0x72, 0xFB, 0x11, 0xDD, 0xD7, 0x40, 0x02, 0xB4, 0xA3, 0x22, 0xA5, 0xB7, 0x1D, 0xC9, 0x5B, 0x49};
+static const u4_t DEVADDR = 0x26041DBB;
 
 void os_getArtEui(u1_t *buf) {}
 void os_getDevEui(u1_t *buf) {}
@@ -80,15 +94,15 @@ void printVoltage();
 // ************************************************************************************************
 void setup()
 {
-  #ifdef LED_STATUS_INDICATOR
+#ifdef LED_STATUS_INDICATOR
   pinMode(LED_STATUS_PIN, OUTPUT);
-  #endif
+#endif
   pinMode(LED_PIN, OUTPUT);
 
   while (!Serial)
     ; // wait for Serial to be initialized
   Serial.begin(115200);
-  delay(100); // per sample code on RF_95 test
+  delay(1000); // per sample code on RF_95 test
   Serial.println(F("Starting"));
 
   // LMIC init
@@ -188,11 +202,40 @@ void loop()
       analogWrite(LED_PIN, dayIntensity);
     }
   }
-
 #endif
-
-#ifdef MY_DEBUG
-  printVoltage();
+#ifdef MAB_MODE
+  unsigned long currentMillis = millis();
+  float nowSolar = readSol();
+  if (nowSolar < solarThreshold)
+  {
+    if ((ledState == HIGH) && (currentMillis - previousMillis >= onInterval))
+    {
+      ledState = LOW;
+      previousMillis = currentMillis;
+      digitalWrite(LED_PIN, ledState);
+    }
+    else if ((ledState == LOW) && (currentMillis - previousMillis >= offInterval))
+    {
+      ledState = HIGH;
+      previousMillis = currentMillis;
+      analogWrite(LED_PIN, nightIntensity);
+    }
+  }
+  else
+  {
+    if ((ledState == HIGH) && (currentMillis - previousMillis >= onInterval))
+    {
+      ledState = LOW;
+      previousMillis = currentMillis;
+      digitalWrite(LED_PIN, ledState);
+    }
+    else if ((ledState == LOW) && (currentMillis - previousMillis >= offInterval))
+    {
+      ledState = HIGH;
+      previousMillis = currentMillis;
+      analogWrite(LED_PIN, dayIntensity);
+    }
+  }
 #endif
 
   os_runloop_once();
@@ -334,7 +377,7 @@ void printVoltage()
   float batteryV = battSensorValue * (VOLTAGE_REFERENCE / 1023.0) * 2;
   float solarV = solSensorValue * (VOLTAGE_REFERENCE / 1023.0) * 2;
 
-  Serial.println("*************************************");
+  Serial.println("****************************************************");
   Serial.print("Battery sensor reading: ");
   Serial.print(battSensorValue);
   Serial.print(" | ");
@@ -347,5 +390,5 @@ void printVoltage()
   Serial.print("Solar Voltage: ");
   Serial.print(solarV);
   Serial.println(" V");
-  Serial.println("*************************************");
+  Serial.println("****************************************************");
 }
