@@ -6,8 +6,8 @@
 // ************************************************************************************************
 //                                         mode select
 // ************************************************************************************************
-#define AFFAN_MODE
-//#define MB_MODE
+//#define AFFAN_MODE
+#define MB_MODE
 //#define MA_MODE
 //#define MAB_MODE
 // ************************************************************************************************
@@ -27,18 +27,18 @@ const int LED_PIN2 = A0;
 #endif
 
 // variable declaration
-const float VOLTAGE_REFERENCE = 3.3;
+const float VOLTAGE_REFERENCE = 5;
 bool ledState = LOW;
 unsigned long previousMillis = 0;
 #ifdef AFFAN_MODE
 const float solarThreshold = 1.2;
-const int nightIntensity = 255;
+const int nightIntensity = 15;
 #endif
 #ifdef MB_MODE
 float solarThreshold = 1.6;
 unsigned long onInterval = 500;
 unsigned long offInterval = 2500;
-const int nightIntensity = 180;
+const int nightIntensity = 10;
 #endif
 #ifdef MA_MODE
 const float solarThreshold = 1.6;
@@ -47,7 +47,6 @@ unsigned long offInterval = 2500;
 const int dayIntensity = 240;
 const int nightIntensity = 200;
 #endif
-// FIXME: code for MAB light blinking
 #ifdef MAB_MODE
 bool ledState2 = LOW;
 const float solarThreshold = 1.6;
@@ -68,7 +67,7 @@ void os_getDevKey(u1_t *buf) {}
 
 static osjob_t sendjob;
 
-const unsigned TX_INTERVAL = 1800;
+const unsigned TX_INTERVAL = 120;
 
 // ************************************************************************************************
 //                                         pin mapping
@@ -76,8 +75,8 @@ const unsigned TX_INTERVAL = 1800;
 const lmic_pinmap lmic_pins = {
     .nss = 10,
     .rxtx = LMIC_UNUSED_PIN,
-    .rst = 9,
-    .dio = {8, 7, LMIC_UNUSED_PIN},
+    .rst = 4,
+    .dio = {7, 8, LMIC_UNUSED_PIN},
 };
 
 // ************************************************************************************************
@@ -168,7 +167,14 @@ void loop()
       analogWrite(LED_PIN, nightIntensity);
     }
   }
+  else
+  {
+    ledState = LOW;
+    digitalWrite(LED_PIN, ledState);
+  }
+
 #endif
+// FIXME: code for MA light blinking
 #ifdef MA_MODE
   unsigned long currentMillis = millis();
   float nowSolar = readSol();
@@ -203,6 +209,7 @@ void loop()
     }
   }
 #endif
+// FIXME: code for MAB light blinking
 #ifdef MAB_MODE
   unsigned long currentMillis = millis();
   float nowSolar = readSol();
