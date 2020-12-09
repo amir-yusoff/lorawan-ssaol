@@ -2,8 +2,6 @@
 #include <lmic.h>
 #include <hal/hal.h>
 #include <SPI.h>
-#include <Wire.h>
-#include "DHT.h"
 #include <Adafruit_Sensor.h>
 
 // ************************************************************************************************
@@ -17,7 +15,7 @@
 // ************************************************************************************************
 // #define MY_DEBUG
 // #define LED_STATUS_INDICATOR
-#define DHT_MODULE
+// #define DHT_MODULE
 
 // sensor and LED pinout
 const int BATTERY_SENSE_PIN = 17; // A3
@@ -362,18 +360,23 @@ void do_send(osjob_t *j)
     // Prepare upstream data transmission at the next possible time.
     uint16_t b = readBat() * 100.00;
     uint16_t s = readSol() * 100.00;
+#ifdef DHT_MODULE
     uint16_t t = dht.readTemperature() * 100.00;
     uint16_t h = dht.readHumidity() * 100.00;
-
     byte buffer[8];
+#else
+    byte buffer[4];
+#endif
     buffer[0] = b >> 8;
     buffer[1] = b;
     buffer[2] = s >> 8;
     buffer[3] = s;
+#ifdef DHT_MODULE
     buffer[4] = t >> 8;
     buffer[5] = t;
     buffer[6] = h >> 8;
     buffer[7] = h;
+#endif
     LMIC_setTxData2(1, buffer, sizeof(buffer), 0);
     printVoltage();
 
