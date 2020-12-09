@@ -2,6 +2,9 @@
 #include <lmic.h>
 #include <hal/hal.h>
 #include <SPI.h>
+#include <Wire.h>
+#include "DHT.h"
+#include <Adafruit_Sensor.h>
 
 // ************************************************************************************************
 //                                         mode select
@@ -14,6 +17,7 @@
 // ************************************************************************************************
 // #define MY_DEBUG
 // #define LED_STATUS_INDICATOR
+#define DHT_MODULE
 
 // sensor and LED pinout
 const int BATTERY_SENSE_PIN = 17; // A3
@@ -21,6 +25,10 @@ const int SOLAR_SENSE_PIN = 18;   // A4
 const int LED_PIN = 9;
 #ifdef LED_STATUS_INDICATOR
 const int LED_STATUS_PIN = A0;
+#endif
+#ifdef DHT_MODULE
+const int DHT_PIN = 6;
+DHT dht(DHT_PIN, DHT11);
 #endif
 #ifdef MAB_MODE
 const int LED_PIN2 = A0;
@@ -101,6 +109,10 @@ void setup()
   while (!Serial)
     ; // wait for Serial to be initialized
   Serial.begin(115200);
+#ifdef DHT_MODULE
+  dht.begin();
+#endif
+
   delay(1000); // per sample code on RF_95 test
   Serial.println(F("Starting"));
 
@@ -350,12 +362,18 @@ void do_send(osjob_t *j)
     // Prepare upstream data transmission at the next possible time.
     uint16_t b = readBat() * 100.00;
     uint16_t s = readSol() * 100.00;
+    uint16_t t = dht.readTemperature() * 100.00;
+    uint16_t h = dht.readHumidity() * 100.00;
 
-    byte buffer[4];
+    byte buffer[8];
     buffer[0] = b >> 8;
     buffer[1] = b;
     buffer[2] = s >> 8;
     buffer[3] = s;
+    buffer[4] = t >> 8;
+    buffer[5] = t;
+    buffer[6] = h >> 8;
+    buffer[7] = h;
     LMIC_setTxData2(1, buffer, sizeof(buffer), 0);
     printVoltage();
 
