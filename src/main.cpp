@@ -3,6 +3,7 @@
 #include <hal/hal.h>
 #include <SPI.h>
 #include <Adafruit_Sensor.h>
+#include "dht.h"
 
 // ************************************************************************************************
 //                                         mode select
@@ -15,7 +16,7 @@
 // ************************************************************************************************
 // #define MY_DEBUG
 // #define LED_STATUS_INDICATOR
-// #define DHT_MODULE
+#define DHT_MODULE
 
 // sensor and LED pinout
 const int BATTERY_SENSE_PIN = 17; // A3
@@ -26,7 +27,7 @@ const int LED_STATUS_PIN = A0;
 #endif
 #ifdef DHT_MODULE
 const int DHT_PIN = 6;
-DHT dht(DHT_PIN, DHT11);
+DHT dht(DHT_PIN, DHT22);
 #endif
 #ifdef MAB_MODE
 const int LED_PIN2 = A0;
